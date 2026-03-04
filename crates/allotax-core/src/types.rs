@@ -39,7 +39,9 @@ pub struct DiamondCell {
     pub coord_on_diag: f64,
     pub cos_dist: f64,
     pub rank: String,
+    #[serde(rename = "rank_L")]
     pub rank_l: Vec<f64>,
+    #[serde(rename = "rank_R")]
     pub rank_r: Vec<f64>,
     pub value: usize,
     pub types: String,
@@ -98,4 +100,65 @@ pub struct MultiAlphaResult {
     pub mixed_elements: MixedElements,
     pub balance: Vec<BalanceEntry>,
     pub alpha_results: Vec<AlphaSlice>,
+}
+
+// --- Display-only types (lean output for API/Python) ---
+
+/// Lean result for API responses — only what the frontend needs to render.
+/// No intermediate computation data (divergence_elements, deltas, mixed_elements).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AllotaxDisplayResult {
+    pub normalization: f64,
+    pub diamond_counts: Vec<DiamondCell>,
+    pub max_delta_loss: f64,
+    pub wordshift: Vec<WordshiftEntry>,
+    pub balance: Vec<BalanceEntry>,
+    pub alpha: f64,
+}
+
+/// Lean per-alpha slice for multi-alpha API responses.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AlphaDisplaySlice {
+    pub alpha: f64,
+    pub normalization: f64,
+    pub diamond_counts: Vec<DiamondCell>,
+    pub max_delta_loss: f64,
+    pub wordshift: Vec<WordshiftEntry>,
+}
+
+/// Lean multi-alpha result for API responses.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MultiAlphaDisplayResult {
+    pub balance: Vec<BalanceEntry>,
+    pub alpha_results: Vec<AlphaDisplaySlice>,
+}
+
+impl AllotaxResult {
+    /// Convert to a lean display result, dropping intermediate data.
+    pub fn to_display(&self) -> AllotaxDisplayResult {
+        AllotaxDisplayResult {
+            normalization: self.rtd.normalization,
+            diamond_counts: self.diamond.counts.clone(),
+            max_delta_loss: self.diamond.max_delta_loss,
+            wordshift: self.wordshift.clone(),
+            balance: self.balance.clone(),
+            alpha: self.alpha,
+        }
+    }
+}
+
+impl MultiAlphaResult {
+    /// Convert to a lean display result, dropping intermediate data.
+    pub fn to_display(&self) -> MultiAlphaDisplayResult {
+        MultiAlphaDisplayResult {
+            balance: self.balance.clone(),
+            alpha_results: self.alpha_results.iter().map(|a| AlphaDisplaySlice {
+                alpha: a.alpha,
+                normalization: a.rtd.normalization,
+                diamond_counts: a.diamond.counts.clone(),
+                max_delta_loss: a.diamond.max_delta_loss,
+                wordshift: a.wordshift.clone(),
+            }).collect(),
+        }
+    }
 }

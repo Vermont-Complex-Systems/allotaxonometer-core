@@ -20,6 +20,30 @@ fn to_py_dict<T: serde::Serialize>(py: Python<'_>, value: &T) -> PyResult<PyObje
 }
 
 /// Compute allotaxonometer for a single alpha value.
+/// Returns lean display data (no intermediate computation arrays).
+///
+/// Args:
+///     system1: dict with "types" (list[str]) and "counts" (list[float])
+///     system2: dict with "types" (list[str]) and "counts" (list[float])
+///     alpha: float (divergence parameter)
+///
+/// Returns:
+///     dict with keys: normalization, diamond_counts, max_delta_loss, wordshift, balance, alpha
+#[pyfunction]
+fn compute_allotax(
+    py: Python<'_>,
+    system1: &Bound<'_, PyAny>,
+    system2: &Bound<'_, PyAny>,
+    alpha: f64,
+) -> PyResult<PyObject> {
+    let sys1 = parse_system(system1)?;
+    let sys2 = parse_system(system2)?;
+    let result = core::compute_allotax(&sys1, &sys2, alpha);
+    to_py_dict(py, &result.to_display())
+}
+
+/// Compute allotaxonometer for a single alpha, returning the full result
+/// including intermediate data (mixed_elements, divergence_elements, deltas, etc.).
 ///
 /// Args:
 ///     system1: dict with "types" (list[str]) and "counts" (list[float])
@@ -29,7 +53,7 @@ fn to_py_dict<T: serde::Serialize>(py: Python<'_>, value: &T) -> PyResult<PyObje
 /// Returns:
 ///     dict with keys: mixed_elements, rtd, diamond, wordshift, balance, alpha
 #[pyfunction]
-fn compute_allotax(
+fn compute_allotax_full(
     py: Python<'_>,
     system1: &Bound<'_, PyAny>,
     system2: &Bound<'_, PyAny>,
@@ -42,7 +66,29 @@ fn compute_allotax(
 }
 
 /// Compute allotaxonometer for multiple alpha values.
-/// Shares the alpha-independent step (comb_elems) across all alphas.
+/// Returns lean display data. Shares the alpha-independent step (comb_elems) across all alphas.
+///
+/// Args:
+///     system1: dict with "types" and "counts"
+///     system2: dict with "types" and "counts"
+///     alphas: list[float]
+///
+/// Returns:
+///     dict with keys: balance, alpha_results
+#[pyfunction]
+fn compute_allotax_multi_alpha(
+    py: Python<'_>,
+    system1: &Bound<'_, PyAny>,
+    system2: &Bound<'_, PyAny>,
+    alphas: Vec<f64>,
+) -> PyResult<PyObject> {
+    let sys1 = parse_system(system1)?;
+    let sys2 = parse_system(system2)?;
+    let result = core::compute_allotax_multi_alpha(&sys1, &sys2, &alphas);
+    to_py_dict(py, &result.to_display())
+}
+
+/// Compute allotaxonometer for multiple alphas, returning the full result.
 ///
 /// Args:
 ///     system1: dict with "types" and "counts"
@@ -52,7 +98,7 @@ fn compute_allotax(
 /// Returns:
 ///     dict with keys: mixed_elements, balance, alpha_results
 #[pyfunction]
-fn compute_allotax_multi_alpha(
+fn compute_allotax_multi_alpha_full(
     py: Python<'_>,
     system1: &Bound<'_, PyAny>,
     system2: &Bound<'_, PyAny>,
@@ -99,7 +145,9 @@ fn rank_turbulence_divergence(
 #[pymodule]
 fn allotax(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(compute_allotax, m)?)?;
+    m.add_function(wrap_pyfunction!(compute_allotax_full, m)?)?;
     m.add_function(wrap_pyfunction!(compute_allotax_multi_alpha, m)?)?;
+    m.add_function(wrap_pyfunction!(compute_allotax_multi_alpha_full, m)?)?;
     m.add_function(wrap_pyfunction!(rank_turbulence_divergence, m)?)?;
     Ok(())
 }
