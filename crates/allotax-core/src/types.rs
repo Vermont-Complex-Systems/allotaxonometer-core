@@ -104,14 +104,38 @@ pub struct MultiAlphaResult {
 
 // --- Display-only types (lean output for API/Python) ---
 
+/// Lean diamond cell for API responses.
+/// Drops: `rank` (unused), `rank_R` (unused), replaces `rank_L` with single `max_rank`.
+/// Empty cells (value=0) are filtered out entirely in `to_display()`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DisplayDiamondCell {
+    pub x1: i32,
+    pub y1: i32,
+    pub value: usize,
+    pub types: String,
+    pub which_sys: String,
+    pub coord_on_diag: f64,
+    pub cos_dist: f64,
+    /// max of rank_L (was rank_L[1]) — only value the frontend reads.
+    pub max_rank: f64,
+}
+
+/// Lean wordshift entry — drops `rank_diff` (never rendered, sign already in `metric`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DisplayWordshiftEntry {
+    #[serde(rename = "type")]
+    pub type_label: String,
+    pub metric: f64,
+}
+
 /// Lean result for API responses — only what the frontend needs to render.
-/// No intermediate computation data (divergence_elements, deltas, mixed_elements).
+/// Empty diamond cells filtered out, unused fields stripped.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AllotaxDisplayResult {
     pub normalization: f64,
-    pub diamond_counts: Vec<DiamondCell>,
+    pub diamond_counts: Vec<DisplayDiamondCell>,
     pub max_delta_loss: f64,
-    pub wordshift: Vec<WordshiftEntry>,
+    pub wordshift: Vec<DisplayWordshiftEntry>,
     pub balance: Vec<BalanceEntry>,
     pub alpha: f64,
 }
@@ -121,9 +145,9 @@ pub struct AllotaxDisplayResult {
 pub struct AlphaDisplaySlice {
     pub alpha: f64,
     pub normalization: f64,
-    pub diamond_counts: Vec<DiamondCell>,
+    pub diamond_counts: Vec<DisplayDiamondCell>,
     pub max_delta_loss: f64,
-    pub wordshift: Vec<WordshiftEntry>,
+    pub wordshift: Vec<DisplayWordshiftEntry>,
 }
 
 /// Lean multi-alpha result for API responses.
@@ -133,14 +157,39 @@ pub struct MultiAlphaDisplayResult {
     pub alpha_results: Vec<AlphaDisplaySlice>,
 }
 
+fn to_display_diamond(cells: &[DiamondCell]) -> Vec<DisplayDiamondCell> {
+    cells.iter()
+        .filter(|c| c.value > 0)
+        .map(|c| DisplayDiamondCell {
+            x1: c.x1,
+            y1: c.y1,
+            value: c.value,
+            types: c.types.clone(),
+            which_sys: c.which_sys.clone(),
+            coord_on_diag: c.coord_on_diag,
+            cos_dist: c.cos_dist,
+            max_rank: c.rank_l.get(1).copied().unwrap_or(0.0),
+        })
+        .collect()
+}
+
+fn to_display_wordshift(entries: &[WordshiftEntry]) -> Vec<DisplayWordshiftEntry> {
+    entries.iter()
+        .map(|e| DisplayWordshiftEntry {
+            type_label: e.type_label.clone(),
+            metric: e.metric,
+        })
+        .collect()
+}
+
 impl AllotaxResult {
     /// Convert to a lean display result, dropping intermediate data.
     pub fn to_display(&self) -> AllotaxDisplayResult {
         AllotaxDisplayResult {
             normalization: self.rtd.normalization,
-            diamond_counts: self.diamond.counts.clone(),
+            diamond_counts: to_display_diamond(&self.diamond.counts),
             max_delta_loss: self.diamond.max_delta_loss,
-            wordshift: self.wordshift.clone(),
+            wordshift: to_display_wordshift(&self.wordshift),
             balance: self.balance.clone(),
             alpha: self.alpha,
         }
@@ -155,9 +204,9 @@ impl MultiAlphaResult {
             alpha_results: self.alpha_results.iter().map(|a| AlphaDisplaySlice {
                 alpha: a.alpha,
                 normalization: a.rtd.normalization,
-                diamond_counts: a.diamond.counts.clone(),
+                diamond_counts: to_display_diamond(&a.diamond.counts),
                 max_delta_loss: a.diamond.max_delta_loss,
-                wordshift: a.wordshift.clone(),
+                wordshift: to_display_wordshift(&a.wordshift),
             }).collect(),
         }
     }
