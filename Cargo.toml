@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "crates/allotax-core",
+    "crates/allotax-wasm",
+    "crates/allotax-py",
+]
+resolver = "2"
+
+[profile.release]
+opt-level = 3
+lto = true
