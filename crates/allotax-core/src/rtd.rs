@@ -113,9 +113,12 @@ pub fn rank_turbulence_divergence(mixed: &MixedElements, alpha: f64) -> RtdResul
         .map(|d| d / normalization)
         .collect();
 
+    let delta_sum: f64 = normalized.iter().sum();
+
     RtdResult {
         divergence_elements: normalized,
         normalization,
+        delta_sum,
     }
 }
 

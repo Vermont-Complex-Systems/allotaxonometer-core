@@ -29,6 +29,8 @@ pub struct MixedElements {
 pub struct RtdResult {
     pub divergence_elements: Vec<f64>,
     pub normalization: f64,
+    /// Sum of normalized divergence elements = actual D_alpha^R value.
+    pub delta_sum: f64,
 }
 
 /// A single cell in the diamond plot.
@@ -133,6 +135,8 @@ pub struct DisplayWordshiftEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AllotaxDisplayResult {
     pub normalization: f64,
+    /// Sum of normalized divergence elements = actual D_alpha^R value.
+    pub delta_sum: f64,
     pub diamond_counts: Vec<DisplayDiamondCell>,
     pub max_delta_loss: f64,
     pub wordshift: Vec<DisplayWordshiftEntry>,
@@ -145,6 +149,8 @@ pub struct AllotaxDisplayResult {
 pub struct AlphaDisplaySlice {
     pub alpha: f64,
     pub normalization: f64,
+    /// Sum of normalized divergence elements = actual D_alpha^R value.
+    pub delta_sum: f64,
     pub diamond_counts: Vec<DisplayDiamondCell>,
     pub max_delta_loss: f64,
     pub wordshift: Vec<DisplayWordshiftEntry>,
@@ -187,6 +193,7 @@ impl AllotaxResult {
     pub fn to_display(&self) -> AllotaxDisplayResult {
         AllotaxDisplayResult {
             normalization: self.rtd.normalization,
+            delta_sum: self.rtd.delta_sum,
             diamond_counts: to_display_diamond(&self.diamond.counts),
             max_delta_loss: self.diamond.max_delta_loss,
             wordshift: to_display_wordshift(&self.wordshift),
@@ -204,6 +211,7 @@ impl MultiAlphaResult {
             alpha_results: self.alpha_results.iter().map(|a| AlphaDisplaySlice {
                 alpha: a.alpha,
                 normalization: a.rtd.normalization,
+                delta_sum: a.rtd.delta_sum,
                 diamond_counts: to_display_diamond(&a.diamond.counts),
                 max_delta_loss: a.diamond.max_delta_loss,
                 wordshift: to_display_wordshift(&a.wordshift),
