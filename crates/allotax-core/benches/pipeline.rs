@@ -5,23 +5,6 @@ use allotax_core::{
     rank_turbulence_divergence, InputSystem,
 };
 
-/// Generate a Zipf-like dataset with `n` types.
-/// Mimics real word frequency distributions (like the JS performance tests).
-fn generate_zipf_system(n: usize, seed: u64) -> InputSystem {
-    let mut types = Vec::with_capacity(n);
-    let mut counts = Vec::with_capacity(n);
-
-    for i in 0..n {
-        // Simple deterministic "random" offset so two systems differ
-        let rank = (i + 1) as f64;
-        let count = (1000.0 / rank.powf(0.8)) + ((i as f64 * seed as f64) % 7.0);
-        types.push(format!("type_{}", i + seed as usize * 100_000));
-        counts.push(count.max(1.0));
-    }
-
-    InputSystem { types, counts }
-}
-
 /// Generate two overlapping systems (shared ~70% of types, like real data).
 fn generate_pair(n: usize) -> (InputSystem, InputSystem) {
     let shared = (n as f64 * 0.7) as usize;
@@ -118,14 +101,31 @@ fn bench_full_pipeline(c: &mut Criterion) {
 }
 
 fn bench_multi_alpha(c: &mut Criterion) {
-    let (sys1, sys2) = generate_pair(10_000);
-    let alphas = vec![0.5, 1.0, 2.0, 3.0, f64::INFINITY];
+    let mut group = c.benchmark_group("multi_alpha");
+    // Same alpha set as the frontend
+    let alphas = vec![
+        0.0, 0.08, 0.17, 0.25, 0.33, 0.42, 0.5, 0.58, 0.67, 0.75,
+        0.83, 0.92, 1.0, 1.5, 2.0, 3.0, 4.0, f64::INFINITY,
+    ];
 
-    c.bench_function("multi_alpha_10k_5alphas", |b| {
-        b.iter(|| {
-            compute_allotax_multi_alpha(black_box(&sys1), black_box(&sys2), black_box(&alphas))
-        })
-    });
+    for size in [10_000, 100_000] {
+        let (sys1, sys2) = generate_pair(size);
+        group.bench_with_input(
+            BenchmarkId::new("11_alphas", size),
+            &size,
+            |b, _| {
+                b.iter(|| {
+                    compute_allotax_multi_alpha(
+                        black_box(&sys1),
+                        black_box(&sys2),
+                        black_box(&alphas),
+                    )
+                })
+            },
+        );
+    }
+
+    group.finish();
 }
 
 criterion_group!(

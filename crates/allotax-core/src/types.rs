@@ -179,9 +179,14 @@ fn to_display_diamond(cells: &[DiamondCell]) -> Vec<DisplayDiamondCell> {
         .collect()
 }
 
-fn to_display_wordshift(entries: &[WordshiftEntry]) -> Vec<DisplayWordshiftEntry> {
-    entries.iter()
-        .map(|e| DisplayWordshiftEntry {
+fn to_display_wordshift(entries: &[WordshiftEntry], limit: usize) -> Vec<DisplayWordshiftEntry> {
+    let iter = entries.iter();
+    let iter: Box<dyn Iterator<Item = &WordshiftEntry>> = if limit > 0 {
+        Box::new(iter.take(limit))
+    } else {
+        Box::new(iter)
+    };
+    iter.map(|e| DisplayWordshiftEntry {
             type_label: e.type_label.clone(),
             metric: e.metric,
         })
@@ -190,13 +195,14 @@ fn to_display_wordshift(entries: &[WordshiftEntry]) -> Vec<DisplayWordshiftEntry
 
 impl AllotaxResult {
     /// Convert to a lean display result, dropping intermediate data.
-    pub fn to_display(&self) -> AllotaxDisplayResult {
+    /// `wordshift_limit`: max wordshift entries per alpha (0 = no limit).
+    pub fn to_display(&self, wordshift_limit: usize) -> AllotaxDisplayResult {
         AllotaxDisplayResult {
             normalization: self.rtd.normalization,
             delta_sum: self.rtd.delta_sum,
             diamond_counts: to_display_diamond(&self.diamond.counts),
             max_delta_loss: self.diamond.max_delta_loss,
-            wordshift: to_display_wordshift(&self.wordshift),
+            wordshift: to_display_wordshift(&self.wordshift, wordshift_limit),
             balance: self.balance.clone(),
             alpha: self.alpha,
         }
@@ -205,7 +211,8 @@ impl AllotaxResult {
 
 impl MultiAlphaResult {
     /// Convert to a lean display result, dropping intermediate data.
-    pub fn to_display(&self) -> MultiAlphaDisplayResult {
+    /// `wordshift_limit`: max wordshift entries per alpha (0 = no limit).
+    pub fn to_display(&self, wordshift_limit: usize) -> MultiAlphaDisplayResult {
         MultiAlphaDisplayResult {
             balance: self.balance.clone(),
             alpha_results: self.alpha_results.iter().map(|a| AlphaDisplaySlice {
@@ -214,7 +221,7 @@ impl MultiAlphaResult {
                 delta_sum: a.rtd.delta_sum,
                 diamond_counts: to_display_diamond(&a.diamond.counts),
                 max_delta_loss: a.diamond.max_delta_loss,
-                wordshift: to_display_wordshift(&a.wordshift),
+                wordshift: to_display_wordshift(&a.wordshift, wordshift_limit),
             }).collect(),
         }
     }

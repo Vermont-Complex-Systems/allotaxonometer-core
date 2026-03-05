@@ -94,17 +94,26 @@ fn norm_div_elems(
     }
 }
 
-/// Compute rank-turbulence divergence between two mixed systems.
-pub fn rank_turbulence_divergence(mixed: &MixedElements, alpha: f64) -> RtdResult {
+/// Precompute inverse ranks from mixed elements (call once, reuse across alphas).
+pub fn precompute_inverse_ranks(mixed: &MixedElements) -> (Vec<f64>, Vec<f64>) {
     let inv_r1: Vec<f64> = mixed.system1.ranks.iter().map(|r| r.powi(-1)).collect();
     let inv_r2: Vec<f64> = mixed.system2.ranks.iter().map(|r| r.powi(-1)).collect();
+    (inv_r1, inv_r2)
+}
 
-    let divergence_elements = div_elems(&inv_r1, &inv_r2, alpha);
+/// RTD with pre-computed inverse ranks (avoids recomputing per alpha).
+pub fn rank_turbulence_divergence_with_inv(
+    mixed: &MixedElements,
+    inv_r1: &[f64],
+    inv_r2: &[f64],
+    alpha: f64,
+) -> RtdResult {
+    let divergence_elements = div_elems(inv_r1, inv_r2, alpha);
     let normalization = norm_div_elems(
         &mixed.system1.counts,
         &mixed.system2.counts,
-        &inv_r1,
-        &inv_r2,
+        inv_r1,
+        inv_r2,
         alpha,
     );
 
@@ -120,6 +129,12 @@ pub fn rank_turbulence_divergence(mixed: &MixedElements, alpha: f64) -> RtdResul
         normalization,
         delta_sum,
     }
+}
+
+/// Compute rank-turbulence divergence between two mixed systems.
+pub fn rank_turbulence_divergence(mixed: &MixedElements, alpha: f64) -> RtdResult {
+    let (inv_r1, inv_r2) = precompute_inverse_ranks(mixed);
+    rank_turbulence_divergence_with_inv(mixed, &inv_r1, &inv_r2, alpha)
 }
 
 #[cfg(test)]

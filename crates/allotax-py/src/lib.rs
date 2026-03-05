@@ -26,20 +26,23 @@ fn to_py_dict<T: serde::Serialize>(py: Python<'_>, value: &T) -> PyResult<PyObje
 ///     system1: dict with "types" (list[str]) and "counts" (list[float])
 ///     system2: dict with "types" (list[str]) and "counts" (list[float])
 ///     alpha: float (divergence parameter)
+///     wordshift_limit: int, optional (max wordshift entries; default 200, 0 = no limit)
 ///
 /// Returns:
 ///     dict with keys: normalization, diamond_counts, max_delta_loss, wordshift, balance, alpha
 #[pyfunction]
+#[pyo3(signature = (system1, system2, alpha, wordshift_limit=200))]
 fn compute_allotax(
     py: Python<'_>,
     system1: &Bound<'_, PyAny>,
     system2: &Bound<'_, PyAny>,
     alpha: f64,
+    wordshift_limit: usize,
 ) -> PyResult<PyObject> {
     let sys1 = parse_system(system1)?;
     let sys2 = parse_system(system2)?;
     let result = core::compute_allotax(&sys1, &sys2, alpha);
-    to_py_dict(py, &result.to_display())
+    to_py_dict(py, &result.to_display(wordshift_limit))
 }
 
 /// Compute allotaxonometer for a single alpha, returning the full result
@@ -72,20 +75,23 @@ fn compute_allotax_full(
 ///     system1: dict with "types" and "counts"
 ///     system2: dict with "types" and "counts"
 ///     alphas: list[float]
+///     wordshift_limit: int, optional (max wordshift entries per alpha; default 200, 0 = no limit)
 ///
 /// Returns:
 ///     dict with keys: balance, alpha_results
 #[pyfunction]
+#[pyo3(signature = (system1, system2, alphas, wordshift_limit=200))]
 fn compute_allotax_multi_alpha(
     py: Python<'_>,
     system1: &Bound<'_, PyAny>,
     system2: &Bound<'_, PyAny>,
     alphas: Vec<f64>,
+    wordshift_limit: usize,
 ) -> PyResult<PyObject> {
     let sys1 = parse_system(system1)?;
     let sys2 = parse_system(system2)?;
     let result = core::compute_allotax_multi_alpha(&sys1, &sys2, &alphas);
-    to_py_dict(py, &result.to_display())
+    to_py_dict(py, &result.to_display(wordshift_limit))
 }
 
 /// Compute allotaxonometer for multiple alphas, returning the full result.
