@@ -163,6 +163,21 @@ pub struct MultiAlphaDisplayResult {
     pub alpha_results: Vec<AlphaDisplaySlice>,
 }
 
+/// Truncate the comma-separated types string to at most `max_types` entries.
+/// The frontend only shows the first 8 in tooltips — no need to send thousands.
+fn truncate_types(types: &str, max_types: usize) -> String {
+    let mut count = 0;
+    for (i, c) in types.char_indices() {
+        if c == ',' {
+            count += 1;
+            if count >= max_types {
+                return types[..i].to_string();
+            }
+        }
+    }
+    types.to_string()
+}
+
 fn to_display_diamond(cells: &[DiamondCell]) -> Vec<DisplayDiamondCell> {
     cells.iter()
         .filter(|c| c.value > 0)
@@ -170,7 +185,7 @@ fn to_display_diamond(cells: &[DiamondCell]) -> Vec<DisplayDiamondCell> {
             x1: c.x1,
             y1: c.y1,
             value: c.value,
-            types: c.types.clone(),
+            types: truncate_types(&c.types, 10),
             which_sys: c.which_sys.clone(),
             coord_on_diag: c.coord_on_diag,
             cos_dist: c.cos_dist,
