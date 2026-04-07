@@ -6,8 +6,25 @@ build-backend = "maturin"
 name = "allotax"
 version = "0.1.0"
 description = "Fast allotaxonometer computation powered by Rust"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Jonathan St-Onge", email = "jonathanstonge7@gmail.com" },
+]
 requires-python = ">=3.9"
+keywords = ["allotaxonometer", "rank-turbulence", "divergence", "text-analysis", "linguistics"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Text Processing :: Linguistic",
+]
+
+[project.urls]
+Repository = "https://github.com/Vermont-Complex-Systems/allotaxonometer-core"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
 manifest-path = "Cargo.toml"
+module-name = "allotax"
