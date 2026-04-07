@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Jonathan St-Onge <jonathanstonge7@gmail.com>"]
 description = "Core allotaxonometer computation: rank-turbulence divergence and related metrics"
+license = "MIT"
+repository = "https://github.com/Vermont-Complex-Systems/allotaxonometer-core"
+readme = "README.md"
+keywords = ["allotaxonometer", "rank-turbulence", "divergence", "text-analysis", "linguistics"]
+categories = ["science", "algorithms"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
