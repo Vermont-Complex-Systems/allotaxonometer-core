@@ -53,12 +53,15 @@ pub fn diamond_count(mixed: &MixedElements, rtd: &RtdResult) -> DiamondResult {
         }
     }
 
-    // Grid size: log10 of the largest rank across both systems, floored to
-    // cells. Computed here (rather than downstream) because this is the
-    // single place in the pipeline that actually depends on `CELL_LENGTH`.
+    // Grid size: log10 of the largest rank across both systems, rounded up
+    // to the next whole power of 10 (so the axis labels land on clean
+    // decades) and then converted to cells. The `.ceil()` matches the
+    // pre-`b8c9e62` behavior — dropping it shrunk `ncells` for any dataset
+    // whose max rank isn't already a power of 10, which made the diamond
+    // look tighter / more off-diagonal than it should.
     let max_rank1 = ranks1.iter().cloned().fold(0.0_f64, f64::max);
     let max_rank2 = ranks2.iter().cloned().fold(0.0_f64, f64::max);
-    let mut maxlog10 = max_rank1.log10().max(max_rank2.log10());
+    let mut maxlog10 = max_rank1.log10().max(max_rank2.log10()).ceil();
     if maxlog10 < 1.0 {
         maxlog10 = 1.0;
     }
