@@ -58,6 +58,12 @@ pub struct DiamondResult {
     pub max_delta_loss: f64,
     /// Reordered mixed elements (sorted by divergence contribution).
     pub mixed_elements: MixedElements,
+    /// Number of cells along one side of the diamond grid. Computed from
+    /// `maxlog10` during `diamond_count` — stored here so downstream
+    /// consumers don't have to re-derive it from the ranks.
+    pub ncells: i32,
+    /// Largest log10(rank) across both systems, rounded up to at least 1.
+    pub maxlog10: f64,
 }
 
 /// A single entry in the wordshift bar chart.
@@ -142,6 +148,12 @@ pub struct AllotaxDisplayResult {
     pub wordshift: Vec<DisplayWordshiftEntry>,
     pub balance: Vec<BalanceEntry>,
     pub alpha: f64,
+    /// Number of cells along one side of the diamond grid. The frontend uses
+    /// this to size its band scale when consuming sparse `diamond_counts`.
+    pub ncells: i32,
+    /// Largest log10(rank) across both systems, rounded up to at least 1.
+    /// Used by the frontend to label the diamond axes.
+    pub maxlog10: f64,
 }
 
 /// Lean per-alpha slice for multi-alpha API responses.
@@ -154,6 +166,12 @@ pub struct AlphaDisplaySlice {
     pub diamond_counts: Vec<DisplayDiamondCell>,
     pub max_delta_loss: f64,
     pub wordshift: Vec<DisplayWordshiftEntry>,
+    /// Number of cells along one side of the diamond grid. Same value across
+    /// all alphas (it depends only on `mixed_elements`), but copied per slice
+    /// for convenience.
+    pub ncells: i32,
+    /// Largest log10(rank) across both systems, rounded up to at least 1.
+    pub maxlog10: f64,
 }
 
 /// Lean multi-alpha result for API responses.
@@ -220,6 +238,8 @@ impl AllotaxResult {
             wordshift: to_display_wordshift(&self.wordshift, wordshift_limit),
             balance: self.balance.clone(),
             alpha: self.alpha,
+            ncells: self.diamond.ncells,
+            maxlog10: self.diamond.maxlog10,
         }
     }
 }
@@ -237,6 +257,8 @@ impl MultiAlphaResult {
                 diamond_counts: to_display_diamond(&a.diamond.counts),
                 max_delta_loss: a.diamond.max_delta_loss,
                 wordshift: to_display_wordshift(&a.wordshift, wordshift_limit),
+                ncells: a.diamond.ncells,
+                maxlog10: a.diamond.maxlog10,
             }).collect(),
         }
     }

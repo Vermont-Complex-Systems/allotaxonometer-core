@@ -53,6 +53,17 @@ pub fn diamond_count(mixed: &MixedElements, rtd: &RtdResult) -> DiamondResult {
         }
     }
 
+    // Grid size: log10 of the largest rank across both systems, floored to
+    // cells. Computed here (rather than downstream) because this is the
+    // single place in the pipeline that actually depends on `CELL_LENGTH`.
+    let max_rank1 = ranks1.iter().cloned().fold(0.0_f64, f64::max);
+    let max_rank2 = ranks2.iter().cloned().fold(0.0_f64, f64::max);
+    let mut maxlog10 = max_rank1.log10().max(max_rank2.log10());
+    if maxlog10 < 1.0 {
+        maxlog10 = 1.0;
+    }
+    let ncells = (maxlog10 / CELL_LENGTH).floor() as i32 + 1;
+
     // Build reordered mixed elements
     let reordered_mixed = MixedElements {
         system1: MixedSystem {
@@ -125,5 +136,7 @@ pub fn diamond_count(mixed: &MixedElements, rtd: &RtdResult) -> DiamondResult {
         deltas: reordered_deltas,
         max_delta_loss,
         mixed_elements: reordered_mixed,
+        ncells,
+        maxlog10,
     }
 }
