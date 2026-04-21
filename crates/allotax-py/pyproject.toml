@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "allotax"
-version = "0.2.0"
+version = "0.2.1"
 description = "Fast allotaxonometer computation powered by Rust"
 readme = "README.md"
 license = { text = "MIT" }
