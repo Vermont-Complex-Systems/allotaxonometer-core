@@ -22,7 +22,7 @@ fn div_elems(inv_r1: &[f64], inv_r2: &[f64], alpha: f64) -> Vec<f64> {
             .map(|(r1, r2)| {
                 let x_max = (1.0 / r1).max(1.0 / r2);
                 let x_min = (1.0 / r1).min(1.0 / r2);
-                (x_max / x_min).log10()
+                (x_max / x_min).ln()
             })
             .collect()
     } else {
