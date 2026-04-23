@@ -137,6 +137,23 @@ pub fn rank_turbulence_divergence(mixed: &MixedElements, alpha: f64) -> RtdResul
     rank_turbulence_divergence_with_inv(mixed, &inv_r1, &inv_r2, alpha)
 }
 
+/// Compute rank-turbulence divergence for multiple alpha values.
+/// Precomputes inverse ranks once, then parallelizes per-alpha work with Rayon.
+pub fn rank_turbulence_divergence_multi_alpha(
+    mixed: &MixedElements,
+    alphas: &[f64],
+) -> Vec<(f64, RtdResult)> {
+    use rayon::prelude::*;
+    let (inv_r1, inv_r2) = precompute_inverse_ranks(mixed);
+    alphas
+        .par_iter()
+        .map(|&alpha| {
+            let rtd = rank_turbulence_divergence_with_inv(mixed, &inv_r1, &inv_r2, alpha);
+            (alpha, rtd)
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

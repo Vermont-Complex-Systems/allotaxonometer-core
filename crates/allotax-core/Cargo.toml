@@ -1,6 +1,6 @@
 [package]
 name = "allotax-core"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2021"
 authors = ["Jonathan St-Onge <jonathanstonge7@gmail.com>"]
 description = "Core allotaxonometer computation: rank-turbulence divergence and related metrics"

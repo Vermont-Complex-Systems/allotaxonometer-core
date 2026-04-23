@@ -10,7 +10,7 @@ use rayon::prelude::*;
 
 pub use types::*;
 pub use combine::comb_elems;
-pub use rtd::{rank_turbulence_divergence, precompute_inverse_ranks, rank_turbulence_divergence_with_inv};
+pub use rtd::{rank_turbulence_divergence, rank_turbulence_divergence_multi_alpha, precompute_inverse_ranks, rank_turbulence_divergence_with_inv};
 pub use diamond::diamond_count;
 pub use wordshift::wordshift_dat;
 pub use balance::balance_dat;

@@ -116,34 +116,176 @@ fn compute_allotax_multi_alpha_full(
     to_py_dict(py, &result)
 }
 
-/// Compute only the rank-turbulence divergence (for recomputing on pre-combined data).
+/// Per-term RTD entry with structured fields.
+#[derive(serde::Serialize)]
+struct RtdEntry {
+    #[serde(rename = "type")]
+    type_label: String,
+    rank1: f64,
+    rank2: f64,
+    divergence: f64,
+}
+
+/// Full RTD result: per-term entries + summary stats.
+#[derive(serde::Serialize)]
+struct RtdWordshiftResult {
+    wordshift: Vec<RtdEntry>,
+    normalization: f64,
+    delta_sum: f64,
+}
+
+/// Per-alpha RTD result with wordshift entries.
+#[derive(serde::Serialize)]
+struct AlphaRtdSlice {
+    alpha: f64,
+    wordshift: Vec<RtdEntry>,
+    normalization: f64,
+    delta_sum: f64,
+}
+
+/// Multi-alpha RTD result.
+#[derive(serde::Serialize)]
+struct MultiAlphaRtdResult {
+    alpha_results: Vec<AlphaRtdSlice>,
+}
+
+/// Compute rank-turbulence divergence between two systems.
+///
+/// Takes two systems (dicts with "types" and "counts"), properly merges
+/// their vocabularies via comb_elems, computes RTD, and returns per-term
+/// signed divergence with ranks.
+///
+/// Args:
+///     system1: dict with "types" (list[str]) and "counts" (list[float])
+///     system2: dict with "types" (list[str]) and "counts" (list[float])
+///     alpha: float (divergence parameter)
+///     limit: int, optional (max entries to return; default 0 = no limit)
+///
+/// Returns:
+///     dict with keys:
+///       - wordshift: list of {type, rank1, rank2, divergence}
+///       - normalization: float
+///       - delta_sum: float
 #[pyfunction]
+#[pyo3(signature = (system1, system2, alpha, limit=0))]
 fn rank_turbulence_divergence(
     py: Python<'_>,
-    ranks1: Vec<f64>,
-    ranks2: Vec<f64>,
-    counts1: Vec<f64>,
-    counts2: Vec<f64>,
+    system1: &Bound<'_, PyAny>,
+    system2: &Bound<'_, PyAny>,
     alpha: f64,
+    limit: usize,
 ) -> PyResult<PyObject> {
-    let mixed = core::MixedElements {
-        system1: core::MixedSystem {
-            types: vec![],
-            counts: counts1,
-            probs: vec![],
-            ranks: ranks1,
-            totalunique: 0,
-        },
-        system2: core::MixedSystem {
-            types: vec![],
-            counts: counts2,
-            probs: vec![],
-            ranks: ranks2,
-            totalunique: 0,
-        },
-    };
+    let sys1 = parse_system(system1)?;
+    let sys2 = parse_system(system2)?;
+    let mixed = core::comb_elems(&sys1, &sys2);
+    let rtd = core::rank_turbulence_divergence(&mixed, alpha);
 
-    let result = core::rank_turbulence_divergence(&mixed, alpha);
+    let n = mixed.system1.types.len();
+    let mut entries: Vec<RtdEntry> = Vec::with_capacity(n);
+
+    for i in 0..n {
+        let rank1 = mixed.system1.ranks[i];
+        let rank2 = mixed.system2.ranks[i];
+        let rank_diff = rank1 - rank2;
+        // Sign: negative rank_diff means rank1 < rank2 (type is more
+        // prominent in system1), so flip the unsigned element.
+        let divergence = if rank_diff < 0.0 {
+            -rtd.divergence_elements[i]
+        } else {
+            rtd.divergence_elements[i]
+        };
+        entries.push(RtdEntry {
+            type_label: mixed.system1.types[i].clone(),
+            rank1,
+            rank2,
+            divergence,
+        });
+    }
+
+    // Sort by |divergence| descending
+    entries.sort_by(|a, b| {
+        b.divergence.abs().partial_cmp(&a.divergence.abs())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    if limit > 0 {
+        entries.truncate(limit);
+    }
+
+    let result = RtdWordshiftResult {
+        wordshift: entries,
+        normalization: rtd.normalization,
+        delta_sum: rtd.delta_sum,
+    };
+    to_py_dict(py, &result)
+}
+
+/// Compute rank-turbulence divergence for multiple alpha values.
+/// Shares vocabulary merging and inverse rank precomputation across all alphas.
+/// Per-alpha work is parallelized with Rayon.
+///
+/// Args:
+///     system1: dict with "types" (list[str]) and "counts" (list[float])
+///     system2: dict with "types" (list[str]) and "counts" (list[float])
+///     alphas: list[float] (divergence parameters)
+///     limit: int, optional (max entries per alpha; default 0 = no limit)
+///
+/// Returns:
+///     dict with keys:
+///       - alpha_results: list of {alpha, wordshift, normalization, delta_sum}
+#[pyfunction]
+#[pyo3(signature = (system1, system2, alphas, limit=0))]
+fn rank_turbulence_divergence_multi_alpha(
+    py: Python<'_>,
+    system1: &Bound<'_, PyAny>,
+    system2: &Bound<'_, PyAny>,
+    alphas: Vec<f64>,
+    limit: usize,
+) -> PyResult<PyObject> {
+    let sys1 = parse_system(system1)?;
+    let sys2 = parse_system(system2)?;
+    let mixed = core::comb_elems(&sys1, &sys2);
+    let rtd_results = core::rank_turbulence_divergence_multi_alpha(&mixed, &alphas);
+
+    let n = mixed.system1.types.len();
+    let mut alpha_slices: Vec<AlphaRtdSlice> = Vec::with_capacity(rtd_results.len());
+
+    for (alpha, rtd) in rtd_results {
+        let mut entries: Vec<RtdEntry> = Vec::with_capacity(n);
+        for i in 0..n {
+            let rank1 = mixed.system1.ranks[i];
+            let rank2 = mixed.system2.ranks[i];
+            let rank_diff = rank1 - rank2;
+            let divergence = if rank_diff < 0.0 {
+                -rtd.divergence_elements[i]
+            } else {
+                rtd.divergence_elements[i]
+            };
+            entries.push(RtdEntry {
+                type_label: mixed.system1.types[i].clone(),
+                rank1,
+                rank2,
+                divergence,
+            });
+        }
+        entries.sort_by(|a, b| {
+            b.divergence.abs().partial_cmp(&a.divergence.abs())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        if limit > 0 {
+            entries.truncate(limit);
+        }
+        alpha_slices.push(AlphaRtdSlice {
+            alpha,
+            wordshift: entries,
+            normalization: rtd.normalization,
+            delta_sum: rtd.delta_sum,
+        });
+    }
+
+    let result = MultiAlphaRtdResult {
+        alpha_results: alpha_slices,
+    };
     to_py_dict(py, &result)
 }
 
@@ -155,5 +297,6 @@ fn allotax(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(compute_allotax_multi_alpha, m)?)?;
     m.add_function(wrap_pyfunction!(compute_allotax_multi_alpha_full, m)?)?;
     m.add_function(wrap_pyfunction!(rank_turbulence_divergence, m)?)?;
+    m.add_function(wrap_pyfunction!(rank_turbulence_divergence_multi_alpha, m)?)?;
     Ok(())
 }
